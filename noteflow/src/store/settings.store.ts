@@ -3,6 +3,9 @@ import { noteflowIpc } from "../lib/ipc";
 import type { Settings } from "../types";
 
 const defaultSettings: Settings = {
+  googleAiKey: "",
+  notionApiKey: "",
+  notionParentPageId: "",
   theme: "system",
 };
 

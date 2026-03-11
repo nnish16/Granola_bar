@@ -34,12 +34,7 @@ module.exports = {
       {
         test: /\.css$/,
         use: [
-          {
-            loader: "style-loader",
-            options: {
-              injectType: "linkTag",
-            },
-          },
+          "style-loader",
           "css-loader",
           "postcss-loader",
         ],

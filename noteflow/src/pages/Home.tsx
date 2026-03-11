@@ -8,6 +8,7 @@ import MeetingCardSkeleton from "../components/meeting/MeetingCardSkeleton";
 import ComingUp from "../components/sidebar/ComingUp";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
+import { isNoteflowBridgeAvailable } from "../lib/ipc";
 import { useMeetingsStore } from "../store/meetings.store";
 
 export default function Home(): JSX.Element {
@@ -22,6 +23,7 @@ export default function Home(): JSX.Element {
   const loadMoreMeetings = useMeetingsStore((state) => state.loadMoreMeetings);
   const searchMeetings = useMeetingsStore((state) => state.searchMeetings);
   const createMeeting = useMeetingsStore((state) => state.createMeeting);
+  const isBridgeAvailable = isNoteflowBridgeAvailable();
   const upcomingMeetings = [...meetings]
     .filter((meeting) => meeting.startedAt > Date.now())
     .sort((left, right) => left.startedAt - right.startedAt);
@@ -33,14 +35,18 @@ export default function Home(): JSX.Element {
   }, [deferredSearchValue, isSearching, loadMeetings, searchMeetings]);
 
   const handleCreateMeeting = async (): Promise<void> => {
-    const meeting = await createMeeting({
-      title: "Untitled Meeting",
-      startedAt: Date.now(),
-    });
+    try {
+      const meeting = await createMeeting({
+        title: "Untitled Meeting",
+        startedAt: Date.now(),
+      });
 
-    startTransition(() => {
-      navigate(`/meeting/${meeting.id}`);
-    });
+      startTransition(() => {
+        navigate(`/meeting/${meeting.id}`);
+      });
+    } catch {
+      // The store already exposes a user-facing error banner for preview mode or IPC failures.
+    }
   };
 
   const handleLoadMore = async (): Promise<void> => {
@@ -50,7 +56,11 @@ export default function Home(): JSX.Element {
   return (
     <AppShell
       topBar={
-        <TopBar searchValue={searchValue} onSearchChange={setSearchValue} onCreateMeeting={handleCreateMeeting} />
+        <TopBar
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          onCreateMeeting={isBridgeAvailable ? handleCreateMeeting : undefined}
+        />
       }
     >
       <section className="space-y-8">
@@ -64,7 +74,11 @@ export default function Home(): JSX.Element {
           <Badge>{pastMeetings.length} saved</Badge>
         </div>
 
-        {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+        {error ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {isBridgeAvailable ? error : "Preview mode detected. Use the Electron app window opened by `npm start` for desktop features like creating meetings, local storage, audio capture, and Notion sync."}
+          </div>
+        ) : null}
 
         {isLoading && meetings.length === 0 ? (
           <div className="grid gap-4 xl:grid-cols-2">

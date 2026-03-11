@@ -8,3 +8,4 @@ dist
 noteflow.sqlite
 playwright-report
 output
+resources/models/*.bin

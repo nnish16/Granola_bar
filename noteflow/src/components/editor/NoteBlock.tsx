@@ -10,6 +10,7 @@ type NoteBlockProps = {
   block: NoteBlockModel;
   onChange: (blockId: string, newContent: string) => void;
   onEnhance?: (blockId: string) => void;
+  isEnhancing?: boolean;
   onSave: () => void;
 };
 
@@ -25,7 +26,7 @@ function buildEditorContent(block: NoteBlockModel): Record<string, unknown> {
   };
 }
 
-export default function NoteBlock({ block, onChange, onEnhance, onSave }: NoteBlockProps): JSX.Element {
+export default function NoteBlock({ block, onChange, onEnhance, isEnhancing = false, onSave }: NoteBlockProps): JSX.Element {
   const editorContent = useMemo(() => buildEditorContent(block), [block.blockType, block.content]);
   const editor = useEditor({
     editable: block.source === "user",
@@ -94,6 +95,7 @@ export default function NoteBlock({ block, onChange, onEnhance, onSave }: NoteBl
       {block.id && onEnhance ? (
         <div className="absolute right-3 top-3 z-10">
           <EnhanceButton
+            isBusy={isEnhancing}
             onClick={() => {
               onEnhance(block.id as string);
             }}

@@ -1,9 +1,13 @@
 import type {
+  AudioChunkInfo,
+  AudioStartResult,
+  AudioStatusResult,
   CreateMeetingInput,
   Meeting,
   MeetingListInput,
   MeetingListResult,
   NoteBlock,
+  NoteFlowApi,
   SaveNotesInput,
   Settings,
   TranscriptSinceInput,
@@ -11,23 +15,57 @@ import type {
   UpdateMeetingInput,
 } from "../types";
 
+const MISSING_BRIDGE_MESSAGE =
+  "NoteFlow's Electron bridge is unavailable. Start the desktop app with `npm start` instead of opening the dev server URL directly.";
+
+const noopUnsubscribe = (): void => undefined;
+
+function getOptionalNoteflowApi(): NoteFlowApi | null {
+  return typeof window !== "undefined" && window.noteflow ? window.noteflow : null;
+}
+
+export function isNoteflowBridgeAvailable(): boolean {
+  return getOptionalNoteflowApi() !== null;
+}
+
+function withNoteflowApi<T>(callback: (api: NoteFlowApi) => Promise<T>): Promise<T> {
+  const api = getOptionalNoteflowApi();
+  if (!api) {
+    return Promise.reject(new Error(MISSING_BRIDGE_MESSAGE));
+  }
+
+  return callback(api);
+}
+
 export const noteflowIpc = {
   meetings: {
-    list: (input?: MeetingListInput): Promise<MeetingListResult> => window.noteflow.meetings.list(input),
-    get: (id: string): Promise<Meeting | null> => window.noteflow.meetings.get(id),
-    create: (input: CreateMeetingInput): Promise<Meeting> => window.noteflow.meetings.create(input),
-    update: (input: UpdateMeetingInput): Promise<Meeting> => window.noteflow.meetings.update(input),
-    delete: (id: string): Promise<void> => window.noteflow.meetings.delete(id),
-    search: (query: string): Promise<Meeting[]> => window.noteflow.meetings.search(query),
-    transcript: (id: string): Promise<TranscriptSegment[]> => window.noteflow.meetings.transcript(id),
-    transcriptSince: (input: TranscriptSinceInput): Promise<TranscriptSegment[]> => window.noteflow.meetings.transcriptSince(input),
+    list: (input?: MeetingListInput): Promise<MeetingListResult> => withNoteflowApi((api) => api.meetings.list(input)),
+    get: (id: string): Promise<Meeting | null> => withNoteflowApi((api) => api.meetings.get(id)),
+    create: (input: CreateMeetingInput): Promise<Meeting> => withNoteflowApi((api) => api.meetings.create(input)),
+    update: (input: UpdateMeetingInput): Promise<Meeting> => withNoteflowApi((api) => api.meetings.update(input)),
+    delete: (id: string): Promise<void> => withNoteflowApi((api) => api.meetings.delete(id)),
+    search: (query: string): Promise<Meeting[]> => withNoteflowApi((api) => api.meetings.search(query)),
+    transcript: (id: string): Promise<TranscriptSegment[]> => withNoteflowApi((api) => api.meetings.transcript(id)),
+    transcriptSince: (input: TranscriptSinceInput): Promise<TranscriptSegment[]> =>
+      withNoteflowApi((api) => api.meetings.transcriptSince(input)),
   },
   notes: {
-    get: (meetingId: string): Promise<NoteBlock[]> => window.noteflow.notes.get(meetingId),
-    save: (input: SaveNotesInput): Promise<NoteBlock[]> => window.noteflow.notes.save(input),
+    get: (meetingId: string): Promise<NoteBlock[]> => withNoteflowApi((api) => api.notes.get(meetingId)),
+    save: (input: SaveNotesInput): Promise<NoteBlock[]> => withNoteflowApi((api) => api.notes.save(input)),
   },
   settings: {
-    get: (): Promise<Settings> => window.noteflow.settings.get(),
-    set: (input: Partial<Settings>): Promise<Settings> => window.noteflow.settings.set(input),
+    get: (): Promise<Settings> => withNoteflowApi((api) => api.settings.get()),
+    set: (input: Partial<Settings>): Promise<Settings> => withNoteflowApi((api) => api.settings.set(input)),
+  },
+  audio: {
+    start: (meetingId: string): Promise<AudioStartResult> => withNoteflowApi((api) => api.audio.start(meetingId)),
+    stop: (): Promise<{ ok: boolean }> => withNoteflowApi((api) => api.audio.stop()),
+    status: (): Promise<AudioStatusResult> => withNoteflowApi((api) => api.audio.status()),
+    onChunk: (callback: (info: AudioChunkInfo) => void): (() => void) =>
+      getOptionalNoteflowApi()?.audio.onChunk(callback) ?? noopUnsubscribe,
+    onError: (callback: (info: { message: string }) => void): (() => void) =>
+      getOptionalNoteflowApi()?.audio.onError(callback) ?? noopUnsubscribe,
+    onStopped: (callback: () => void): (() => void) =>
+      getOptionalNoteflowApi()?.audio.onStopped(callback) ?? noopUnsubscribe,
   },
 };

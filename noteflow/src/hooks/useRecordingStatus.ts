@@ -24,7 +24,7 @@ export function useRecordingStatus(): RecordingStatus {
 
     const syncRecordingState = async (meetingId?: string | null): Promise<void> => {
       try {
-        const activeMeetingId = meetingId ?? (await window.noteflow.audio.status()).meetingId;
+        const activeMeetingId = meetingId ?? (await noteflowIpc.audio.status()).meetingId;
         if (!activeMeetingId) {
           setRecordingState(null);
           return;
@@ -48,9 +48,9 @@ export function useRecordingStatus(): RecordingStatus {
     };
 
     void syncRecordingState();
-    const unsubscribeChunk = window.noteflow.audio.onChunk(handleAudioChunk);
-    const unsubscribeStopped = window.noteflow.audio.onStopped(handleAudioReset);
-    const unsubscribeError = window.noteflow.audio.onError(handleAudioReset);
+    const unsubscribeChunk = noteflowIpc.audio.onChunk(handleAudioChunk);
+    const unsubscribeStopped = noteflowIpc.audio.onStopped(handleAudioReset);
+    const unsubscribeError = noteflowIpc.audio.onError(handleAudioReset);
 
     return () => {
       isMounted = false;

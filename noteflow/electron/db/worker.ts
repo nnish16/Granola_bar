@@ -4,7 +4,12 @@ import { createMeeting, deleteMeeting, getMeeting, listMeetings, searchMeetings,
 import { getNotes, replaceNotes } from "./repositories/notes.repo";
 import { getAllSettings, getSettings, setSettings } from "./repositories/settings.repo";
 import { seedBuiltInTemplates } from "./repositories/templates.repo";
-import { listTranscriptSegments, listTranscriptSegmentsSince } from "./repositories/transcripts.repo";
+import {
+  listTranscriptSegments,
+  listTranscriptSegmentsSince,
+  upsertTranscriptSegment,
+  upsertTranscriptSegments,
+} from "./repositories/transcripts.repo";
 
 type WorkerRequest =
   | { id: number; action: "initialize" }
@@ -16,6 +21,22 @@ type WorkerRequest =
   | { id: number; action: "meetings:search"; payload: string }
   | { id: number; action: "meetings:transcript"; payload: string }
   | { id: number; action: "meetings:transcriptSince"; payload: { meetingId: string; afterSegmentIndex: number } }
+  | {
+      id: number;
+      action: "transcripts:appendBatch";
+      payload: {
+        meetingId: string;
+        segments: Parameters<typeof upsertTranscriptSegments>[1];
+      };
+    }
+  | {
+      id: number;
+      action: "transcripts:upsert";
+      payload: {
+        meetingId: string;
+        segment: Parameters<typeof upsertTranscriptSegment>[1];
+      };
+    }
   | { id: number; action: "notes:get"; payload: string }
   | { id: number; action: "notes:list"; payload: string | { meetingId: string } }
   | { id: number; action: "notes:save"; payload: { meetingId: string; blocks: Parameters<typeof replaceNotes>[1] } }
@@ -63,6 +84,20 @@ const workerHandlers: Record<WorkerAction, WorkerHandler> = {
     const payload = message.payload as { meetingId: string; afterSegmentIndex: number };
     return listTranscriptSegmentsSince(payload.meetingId, payload.afterSegmentIndex);
   },
+  "transcripts:appendBatch": (message) => {
+    const payload = message.payload as {
+      meetingId: string;
+      segments: Parameters<typeof upsertTranscriptSegments>[1];
+    };
+    return upsertTranscriptSegments(payload.meetingId, payload.segments);
+  },
+  "transcripts:upsert": (message) => {
+    const payload = message.payload as {
+      meetingId: string;
+      segment: Parameters<typeof upsertTranscriptSegment>[1];
+    };
+    return upsertTranscriptSegment(payload.meetingId, payload.segment);
+  },
   "notes:get": (message) => getNotes(message.payload as string),
   "notes:list": (message) => {
     const payload = message.payload as string | { meetingId: string };
@@ -91,7 +126,6 @@ async function handleMessage(message: WorkerRequest): Promise<WorkerResponse> {
       error: error instanceof Error ? error.message : "Database worker failed.",
     };
   }
-
 }
 
 if (!parentPort) {

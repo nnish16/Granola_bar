@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { noteflowIpc } from "../lib/ipc";
 import type { TranscriptSegment } from "../types";
 
 const LIVE_REFRESH_INTERVAL_MS = 1500;
@@ -20,6 +21,7 @@ export function useTranscriptSegments({
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const segmentsRef = useRef<TranscriptSegment[]>([]);
+  const meetingIdRef = useRef(meetingId);
   const lastSegmentIndexRef = useRef(-1);
   const isMountedRef = useRef(true);
   const isRefreshingRef = useRef(false);
@@ -49,18 +51,19 @@ export function useTranscriptSegments({
       return;
     }
 
+    const requestedMeetingId = meetingId;
     isRefreshingRef.current = true;
 
     try {
       const nextSegments =
         lastSegmentIndexRef.current < 0
-          ? await window.noteflow.meetings.transcript(meetingId)
-          : await window.noteflow.meetings.transcriptSince({
+          ? await noteflowIpc.meetings.transcript(meetingId)
+          : await noteflowIpc.meetings.transcriptSince({
               meetingId,
               afterSegmentIndex: lastSegmentIndexRef.current,
             });
 
-      if (!isMountedRef.current) {
+      if (!isMountedRef.current || meetingIdRef.current !== requestedMeetingId) {
         return;
       }
 
@@ -68,6 +71,10 @@ export function useTranscriptSegments({
         commitSegments(nextSegments, true);
       } else if (nextSegments.length > 0) {
         commitSegments(nextSegments);
+      }
+    } catch {
+      if (isMountedRef.current) {
+        setSegments([]);
       }
     } finally {
       isRefreshingRef.current = false;
@@ -105,6 +112,7 @@ export function useTranscriptSegments({
 
   useEffect(() => {
     isMountedRef.current = true;
+    meetingIdRef.current = meetingId;
     clearRefreshTimer();
     segmentsRef.current = [];
     lastSegmentIndexRef.current = -1;

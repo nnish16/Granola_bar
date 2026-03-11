@@ -1,21 +1,61 @@
 import { getDatabase } from "../database";
 import type { Settings } from "../../../src/types";
 
+const NOTION_SYNC_TARGET_STORAGE_KEY = "notion_database_id";
+
+const settingsKeyMap = {
+  googleAiKey: "google_ai_key",
+  notionApiKey: "notion_api_key",
+  // The Notion sync IPC still reads the historical database key directly.
+  // Keep this alias stable until the sync layer is migrated end-to-end.
+  notionParentPageId: NOTION_SYNC_TARGET_STORAGE_KEY,
+  theme: "theme",
+} as const satisfies Record<keyof Settings, string>;
+
 const defaultSettings: Settings = {
+  googleAiKey: "",
+  notionApiKey: "",
+  notionParentPageId: "",
   theme: "system",
 };
 
-function parseSettingValue(value: string): string {
-  return value;
+function toStorageKey(key: keyof Settings): string {
+  return settingsKeyMap[key];
+}
+
+function fromStorageKey(key: string): keyof Settings | null {
+  const matches = Object.entries(settingsKeyMap).find(([, storageKey]) => storageKey === key);
+  return (matches?.[0] as keyof Settings | undefined) ?? null;
+}
+
+function parseSettingValue<Key extends keyof Settings>(key: Key, value: string): Settings[Key] {
+  if (key === "theme") {
+    return value as Settings[Key];
+  }
+
+  return value as Settings[Key];
+}
+
+function assignSettingValue<Key extends keyof Settings>(
+  settings: Partial<Settings>,
+  key: Key,
+  value: Settings[Key],
+): void {
+  settings[key] = value;
 }
 
 export function getSettings(): Settings {
   const rows = getDatabase()
     .prepare("SELECT key, value FROM settings")
-    .all() as Array<{ key: keyof Settings; value: string }>;
+    .all() as Array<{ key: string; value: string }>;
 
   const overrides = rows.reduce<Partial<Settings>>((accumulator, row) => {
-    accumulator[row.key] = parseSettingValue(row.value) as never;
+    const mappedKey = fromStorageKey(row.key);
+    if (!mappedKey) {
+      return accumulator;
+    }
+
+    assignSettingValue(accumulator, mappedKey, parseSettingValue(mappedKey, row.value));
     return accumulator;
   }, {});
 
@@ -56,7 +96,7 @@ export function setSettings(partialSettings: Partial<Settings>): Settings {
         return;
       }
 
-      statement.run(key, String(value));
+      statement.run(toStorageKey(key as keyof Settings), String(value));
     });
   });
 
@@ -70,7 +110,7 @@ export function deleteSettings(keys: Array<keyof Settings>): Settings {
 
   const transaction = db.transaction(() => {
     keys.forEach((key) => {
-      statement.run(key);
+      statement.run(toStorageKey(key));
     });
   });
 

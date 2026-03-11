@@ -9,6 +9,7 @@ const homeAnchors = [
 ];
 
 const navItems = [
+  { label: "Settings", icon: Settings, to: "/settings", disabled: false },
   { label: "People", icon: Users, to: "/", disabled: true },
   { label: "Companies", icon: Building2, to: "/", disabled: true },
   { label: "Folders", icon: FolderOpen, to: "/", disabled: true },
@@ -110,19 +111,6 @@ export default function Sidebar(): JSX.Element {
         </div>
       </nav>
 
-      <NavLink
-        to="/settings"
-        className={({ isActive }) =>
-          cn(
-            "mt-auto flex items-center gap-3 border-l-2 px-4 py-3 text-sm font-medium text-secondary transition-colors hover:bg-gray-50 hover:text-user dark:hover:bg-zinc-900",
-            isActive && "border-l-accent bg-white text-user shadow-sm dark:bg-zinc-900",
-            !isActive && "border-l-transparent",
-          )
-        }
-      >
-        <Settings className="h-4 w-4" />
-        <span>Settings</span>
-      </NavLink>
     </aside>
   );
 }

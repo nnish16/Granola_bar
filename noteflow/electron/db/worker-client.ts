@@ -12,6 +12,8 @@ type WorkerAction =
   | "meetings:search"
   | "meetings:transcript"
   | "meetings:transcriptSince"
+  | "transcripts:appendBatch"
+  | "transcripts:upsert"
   | "notes:get"
   | "notes:save"
   | "notes:list"

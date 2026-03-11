@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { noteflowIpc } from "../lib/ipc";
 import type { NoteBlock } from "../types";
 import { normalizeNoteBlocks, serializeNoteBlocks } from "../lib/note-blocks";
 import { useQueuedSave } from "./useQueuedSave";
@@ -17,6 +18,7 @@ export function useNotePersistence({
   addBlock: () => void;
   draftBlocks: NoteBlock[];
   isSaving: boolean;
+  replaceBlocks: (nextBlocks: NoteBlock[], persistence: "flush" | "schedule") => NoteBlock[];
   saveNow: () => void;
   updateBlock: (blockId: string, newContent: string) => void;
 } {
@@ -38,7 +40,7 @@ export function useNotePersistence({
   const { flush, isSaving, schedule } = useQueuedSave<NoteBlock[], NoteBlock[]>({
     delayMs: 250,
     onSave: async (nextBlocks) => {
-      const savedBlocks = await window.noteflow.notes.save({
+      const savedBlocks = await noteflowIpc.notes.save({
         meetingId: meetingIdRef.current,
         blocks: nextBlocks,
       });
@@ -93,6 +95,20 @@ export function useNotePersistence({
     schedule(nextBlocks);
   };
 
+  const replaceBlocks = (nextBlocks: NoteBlock[], persistence: "flush" | "schedule"): NoteBlock[] => {
+    isDirtyRef.current = true;
+    const normalizedBlocks = normalizeNoteBlocks(nextBlocks);
+    syncDraftBlocks(normalizedBlocks);
+
+    if (persistence === "flush") {
+      flush(normalizedBlocks);
+    } else {
+      schedule(normalizedBlocks);
+    }
+
+    return normalizedBlocks;
+  };
+
   const addBlock = (): void => {
     isDirtyRef.current = true;
 
@@ -120,6 +136,7 @@ export function useNotePersistence({
     addBlock,
     draftBlocks,
     isSaving,
+    replaceBlocks,
     saveNow,
     updateBlock,
   };

@@ -3,6 +3,7 @@ module.exports = {
   entry: {
     index: "./electron/main.ts",
     "db-worker": "./electron/db/worker.ts",
+    "transcription-worker": "./electron/audio/transcription.worker.ts",
   },
   target: "electron-main",
   devtool: "inline-source-map",

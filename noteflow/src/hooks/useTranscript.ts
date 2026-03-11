@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { noteflowIpc } from "../lib/ipc";
 import type { TranscriptSegment } from "../types";
 import { useTranscriptSegments } from "./useTranscriptSegments";
 
@@ -46,7 +47,7 @@ export function useTranscript({
     setActiveSegmentIndex(null);
     latestElapsedMsRef.current = null;
 
-    const unsubscribeChunk = window.noteflow.audio.onChunk(({ meetingId: activeMeetingId, timestamp }) => {
+    const unsubscribeChunk = noteflowIpc.audio.onChunk(({ meetingId: activeMeetingId, timestamp }) => {
       if (activeMeetingId !== meetingId) {
         return;
       }
@@ -57,7 +58,7 @@ export function useTranscript({
       requestRefresh();
     });
 
-    const unsubscribeStopped = window.noteflow.audio.onStopped(() => {
+    const unsubscribeStopped = noteflowIpc.audio.onStopped(() => {
       latestElapsedMsRef.current = null;
       setActiveSegmentIndex(null);
     });

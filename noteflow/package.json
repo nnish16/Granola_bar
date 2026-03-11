@@ -10,6 +10,7 @@
     "make": "electron-forge make",
     "build": "electron-builder",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.main.json",
+    "download:whisper": "node scripts/download-whisper.js",
     "build:swift": "./scripts/build-swift.sh",
     "build:swift:debug": "./scripts/build-swift.sh --debug"
   },
@@ -63,6 +64,7 @@
     "tailwind-merge": "^3.3.1",
     "uuid": "^13.0.0",
     "vectordb": "^0.21.2",
+    "whisper-node": "^1.1.1",
     "zustand": "^5.0.8",
     "@notionhq/client": "^2.2.15"
   },
@@ -72,7 +74,8 @@
         "icon": "resources/icon",
         "asar": true,
         "extraResource": [
-          "./electron/db/migrations"
+          "./electron/db/migrations",
+          "./resources/models"
         ]
       },
       "makers": [

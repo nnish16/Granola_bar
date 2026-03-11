@@ -109,6 +109,9 @@ export interface Folder {
 
 export interface Settings {
   theme: ThemeMode;
+  notionApiKey: string;
+  notionParentPageId: string;
+  googleAiKey: string;
 }
 
 // ---------------------------------------------------------------------------
