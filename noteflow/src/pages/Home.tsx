@@ -66,6 +66,11 @@ export default function Home(): JSX.Element {
       <section className="space-y-8">
         <div id="coming-up" />
         <ComingUp meetings={upcomingMeetings} />
+        {!isBridgeAvailable ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Preview mode detected. Use the Electron desktop window opened by <code>npm start</code>. Browser tabs at <code>localhost</code> do not have access to NoteFlow&apos;s local database, audio capture, or IPC bridge.
+          </div>
+        ) : null}
         <div id="past-meetings" className="flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-secondary">Library</p>
@@ -95,7 +100,13 @@ export default function Home(): JSX.Element {
             </div>
             <p className="text-sm font-medium text-user">No meetings yet</p>
             <p className="max-w-[220px] text-xs text-gray-400 dark:text-gray-500">
-              Click <strong>+ New</strong> to start recording your first meeting.
+              {isBridgeAvailable ? (
+                <>
+                  Click <strong>+ New</strong> to start recording your first meeting.
+                </>
+              ) : (
+                "Use the Electron window opened by npm start to create your first meeting."
+              )}
             </p>
           </div>
         ) : !isLoading ? (
