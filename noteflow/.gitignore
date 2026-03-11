@@ -1,0 +1,10 @@
+node_modules
+.webpack
+out
+release
+dist
+.env
+*.log
+noteflow.sqlite
+playwright-report
+output

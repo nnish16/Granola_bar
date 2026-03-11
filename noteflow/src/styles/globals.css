@@ -1,0 +1,72 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-accent: #22C55E;
+  --color-accent-dark: #16A34A;
+  --color-user-text: #111111;
+  --color-ai-text: #888888;
+  --color-ai-text-hover: #555555;
+  --color-bg: #FFFFFF;
+  --color-sidebar-bg: #F7F7F5;
+  --color-border: #E5E5E5;
+  --color-secondary: #6B7280;
+  --color-card-hover: #F0F0ED;
+  --font-ui: 'Inter', -apple-system, sans-serif;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --sidebar-width: 220px;
+  --topbar-height: 48px;
+  --editor-max-width: 680px;
+  --editor-padding: 48px;
+}
+
+.dark {
+  --color-bg: #1A1A1A;
+  --color-sidebar-bg: #141414;
+  --color-border: #2A2A2A;
+  --color-user-text: #EEEEEE;
+  --color-secondary: #9CA3AF;
+  --color-card-hover: #222222;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-user antialiased;
+    background-image:
+      radial-gradient(circle at top left, rgba(34, 197, 94, 0.08), transparent 28%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(247, 247, 245, 0.85));
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(circle at top left, rgba(34, 197, 94, 0.18), transparent 30%),
+      linear-gradient(180deg, rgba(18, 18, 18, 0.96), rgba(20, 20, 20, 0.96));
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+}
+
+@layer components {
+  .panel-surface {
+    @apply rounded-3xl border border-border bg-white/90 shadow-shell backdrop-blur dark:bg-zinc-950/80;
+  }
+}

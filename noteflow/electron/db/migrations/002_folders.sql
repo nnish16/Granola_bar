@@ -1,0 +1,2 @@
+-- Reserved migration slot.
+-- The folders table is created in 001_initial.sql for Phase 1.

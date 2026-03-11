@@ -1,0 +1,16 @@
+appId: com.noteflow.desktop
+productName: NoteFlow
+directories:
+  output: release
+files:
+  - .webpack/**/*
+  - package.json
+  - resources/**/*
+extraResources:
+  - from: electron/db/migrations
+    to: migrations
+  - from: resources
+    to: resources
+mac:
+  category: public.app-category.productivity
+  artifactName: ${productName}-${version}-${arch}.${ext}
