@@ -35,6 +35,27 @@ export function listTranscriptSegments(meetingId: string): TranscriptSegment[] {
     .all(meetingId) as TranscriptSegment[];
 }
 
+export function listTranscriptSegmentsSince(meetingId: string, afterSegmentIndex: number): TranscriptSegment[] {
+  return getDatabase()
+    .prepare(
+      `
+        SELECT
+          id,
+          meeting_id AS meetingId,
+          speaker_label AS speakerLabel,
+          text,
+          start_ms AS startMs,
+          end_ms AS endMs,
+          segment_index AS segmentIndex
+        FROM transcript_segments
+        WHERE meeting_id = ?
+          AND segment_index > ?
+        ORDER BY segment_index ASC
+      `,
+    )
+    .all(meetingId, afterSegmentIndex) as TranscriptSegment[];
+}
+
 export function getTranscriptSegment(id: string): TranscriptSegment | null {
   return (
     (getDatabase()

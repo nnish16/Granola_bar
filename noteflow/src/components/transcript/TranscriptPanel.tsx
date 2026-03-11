@@ -1,26 +1,32 @@
 import { PanelRightClose } from "lucide-react";
 import { cn } from "../../lib/utils";
-import type { TranscriptSegment } from "../../types";
+import { useTranscript } from "../../hooks/useTranscript";
 import TranscriptLine from "./TranscriptLine";
 
 type TranscriptPanelProps = {
-  activeSegmentIndex: number | null;
   isOpen: boolean;
+  meetingId: string;
   onClose: () => void;
-  segments: TranscriptSegment[];
+  startedAt: number;
 };
 
 export default function TranscriptPanel({
-  activeSegmentIndex,
   isOpen,
+  meetingId,
   onClose,
-  segments,
+  startedAt,
 }: TranscriptPanelProps): JSX.Element {
+  const { activeSegmentIndex, isLoading, segments } = useTranscript({
+    isLive: isOpen,
+    meetingId,
+    startedAt,
+  });
+
   return (
     <aside
       className={cn(
-        "panel-surface flex h-full min-h-[480px] flex-col overflow-hidden transition-all duration-300",
-        isOpen ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-6 opacity-0 lg:w-0 lg:min-h-0 lg:border-0 lg:p-0",
+        "panel-surface flex h-full min-h-[520px] w-full max-w-[360px] flex-col overflow-hidden transition-all duration-300 max-xl:fixed max-xl:inset-y-0 max-xl:right-4 max-xl:z-20 max-xl:h-[calc(100vh-8rem)]",
+        isOpen ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-full opacity-0 xl:w-0 xl:min-h-0 xl:border-0 xl:p-0",
       )}
     >
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
@@ -39,7 +45,11 @@ export default function TranscriptPanel({
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-        {segments.length === 0 ? (
+        {isLoading ? (
+          <div className="rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-secondary">
+            Loading transcript…
+          </div>
+        ) : segments.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-secondary">
             Transcript segments will appear here once transcription is available for this meeting.
           </div>

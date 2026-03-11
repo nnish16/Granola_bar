@@ -72,6 +72,16 @@ export interface NoteBlock {
   updatedAt?: number;
 }
 
+export interface SaveNotesInput {
+  meetingId: string;
+  blocks: NoteBlock[];
+}
+
+export interface TranscriptSinceInput {
+  meetingId: string;
+  afterSegmentIndex: number;
+}
+
 export interface TranscriptSegment {
   id?: string;
   meetingId?: string;
@@ -155,10 +165,11 @@ export interface NoteFlowApi {
     delete: (id: string) => Promise<void>;
     search: (query: string) => Promise<Meeting[]>;
     transcript: (id: string) => Promise<TranscriptSegment[]>;
+    transcriptSince: (input: TranscriptSinceInput) => Promise<TranscriptSegment[]>;
   };
   notes: {
     get: (meetingId: string) => Promise<NoteBlock[]>;
-    save: (meetingId: string, blocks: NoteBlock[]) => Promise<NoteBlock[]>;
+    save: (input: SaveNotesInput) => Promise<NoteBlock[]>;
   };
   settings: {
     get: () => Promise<Settings>;

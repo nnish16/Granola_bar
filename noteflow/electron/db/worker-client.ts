@@ -10,13 +10,14 @@ type WorkerAction =
   | "meetings:update"
   | "meetings:delete"
   | "meetings:search"
+  | "meetings:transcript"
+  | "meetings:transcriptSince"
   | "notes:get"
   | "notes:save"
   | "notes:list"
   | "settings:get"
   | "settings:set"
-  | "settings:getAll"
-  | "meetings:transcript";
+  | "settings:getAll";
 
 type WorkerRequest = {
   id: number;

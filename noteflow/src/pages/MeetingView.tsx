@@ -1,5 +1,5 @@
-import { ArrowLeft, Clock3, FileText, PanelRightClose, PanelRightOpen } from "lucide-react";
-import { startTransition, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Clock3, FileText, PanelRightOpen } from "lucide-react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import NoteEditor from "../components/editor/NoteEditor";
 import AppShell from "../components/layout/AppShell";
@@ -11,7 +11,7 @@ import { formatMeetingCardDate, formatMeetingDuration, formatMeetingRange } from
 import { noteflowIpc } from "../lib/ipc";
 import { cn } from "../lib/utils";
 import { useMeetingsStore } from "../store/meetings.store";
-import type { NoteBlock, TranscriptSegment } from "../types";
+import type { NoteBlock } from "../types";
 
 function createInitialNoteBlocks(): NoteBlock[] {
   return [
@@ -34,28 +34,16 @@ function createInitialNoteBlocks(): NoteBlock[] {
   ];
 }
 
-function findActiveSegmentIndex(segments: TranscriptSegment[], elapsedMs: number): number | null {
-  for (const segment of segments) {
-    if (elapsedMs >= segment.startMs && elapsedMs < segment.endMs) {
-      return segment.segmentIndex;
-    }
-  }
-
-  return null;
-}
-
 export default function MeetingView(): JSX.Element {
   const { id = "" } = useParams();
   const meeting = useMeetingsStore((state) => state.currentMeeting);
   const isLoading = useMeetingsStore((state) => state.isLoading);
   const loadMeeting = useMeetingsStore((state) => state.loadMeeting);
+  const titleRef = useRef<HTMLHeadingElement | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
-  const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [isSavingTitle, setIsSavingTitle] = useState(false);
-  const [isTranscriptOpen, setIsTranscriptOpen] = useState(true);
+  const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
   const [noteBlocks, setNoteBlocks] = useState<NoteBlock[]>([]);
-  const [transcriptSegments, setTranscriptSegments] = useState<TranscriptSegment[]>([]);
-  const [activeSegmentIndex, setActiveSegmentIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -70,16 +58,12 @@ export default function MeetingView(): JSX.Element {
 
     let isMounted = true;
 
-    void Promise.all([
-      noteflowIpc.notes.get(id),
-      noteflowIpc.meetings.transcript(id),
-    ]).then(([loadedNotes, loadedTranscript]) => {
+    void noteflowIpc.notes.get(id).then((loadedNotes) => {
       if (!isMounted) {
         return;
       }
 
       setNoteBlocks(loadedNotes.length > 0 ? loadedNotes : createInitialNoteBlocks());
-      setTranscriptSegments(loadedTranscript);
     });
 
     return () => {
@@ -88,32 +72,12 @@ export default function MeetingView(): JSX.Element {
   }, [id]);
 
   useEffect(() => {
-    setDraftTitle(meeting?.title ?? "");
-  }, [meeting?.title]);
-
-  useEffect(() => {
-    if (!meeting) {
-      return;
+    const nextTitle = meeting?.title ?? "";
+    setDraftTitle(nextTitle);
+    if (titleRef.current && titleRef.current.textContent !== nextTitle) {
+      titleRef.current.textContent = nextTitle;
     }
-
-    const unsubscribeChunk = window.noteflow.audio.onChunk(({ meetingId, timestamp }) => {
-      if (meetingId !== meeting.id) {
-        return;
-      }
-
-      const elapsedMs = Math.max(0, timestamp - meeting.startedAt);
-      setActiveSegmentIndex(findActiveSegmentIndex(transcriptSegments, elapsedMs));
-    });
-
-    const unsubscribeStopped = window.noteflow.audio.onStopped(() => {
-      setActiveSegmentIndex(null);
-    });
-
-    return () => {
-      unsubscribeChunk();
-      unsubscribeStopped();
-    };
-  }, [meeting, transcriptSegments]);
+  }, [meeting?.title]);
 
   const transcriptSummary = useMemo(() => {
     if (!meeting) {
@@ -123,34 +87,24 @@ export default function MeetingView(): JSX.Element {
     return `${formatMeetingCardDate(meeting.startedAt)} · ${formatMeetingDuration(meeting.startedAt, meeting.endedAt)}`;
   }, [meeting]);
 
-  const saveNotes = async (blocks: NoteBlock[]): Promise<void> => {
+  const saveTitle = async (rawTitle: string): Promise<void> => {
     if (!meeting) {
       return;
     }
 
-    setIsSavingNotes(true);
-    try {
-      const savedBlocks = await noteflowIpc.notes.save(meeting.id, blocks);
-      setNoteBlocks(savedBlocks.length > 0 ? savedBlocks : createInitialNoteBlocks());
-    } finally {
-      setIsSavingNotes(false);
-    }
-  };
-
-  const saveTitle = async (): Promise<void> => {
-    if (!meeting) {
-      return;
-    }
-
-    const trimmedTitle = draftTitle.trim() || "Untitled Meeting";
+    const trimmedTitle = rawTitle.trim() || "Untitled Meeting";
     if (trimmedTitle === meeting.title) {
       setDraftTitle(trimmedTitle);
+      if (titleRef.current && titleRef.current.textContent !== trimmedTitle) {
+        titleRef.current.textContent = trimmedTitle;
+      }
       return;
     }
 
     setIsSavingTitle(true);
     try {
       await noteflowIpc.meetings.update({ id: meeting.id, title: trimmedTitle });
+      setDraftTitle(trimmedTitle);
       startTransition(() => {
         void loadMeeting(meeting.id);
       });
@@ -170,78 +124,82 @@ export default function MeetingView(): JSX.Element {
         {isLoading ? (
           <div className="panel-surface p-8 text-sm text-secondary">Loading meeting…</div>
         ) : meeting ? (
-          <>
-            <div
-              className={cn(
-                "grid items-start gap-6 transition-all duration-300",
-                isTranscriptOpen ? "xl:grid-cols-[minmax(0,1fr)_360px]" : "xl:grid-cols-[minmax(0,1fr)]",
-              )}
-            >
-              <div className="space-y-6">
-                <section className="panel-surface p-8">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm uppercase tracking-[0.2em] text-secondary">Meeting</p>
-                      <input
-                        value={draftTitle}
-                        onBlur={() => {
-                          void saveTitle();
-                        }}
-                        onChange={(event) => {
-                          setDraftTitle(event.target.value);
-                        }}
-                        className="mt-3 w-full bg-transparent font-display text-4xl text-user outline-none placeholder:text-secondary"
-                        placeholder="Untitled Meeting"
-                      />
-                      <div className="mt-6 flex flex-wrap gap-3 text-sm text-secondary">
-                        <span className="inline-flex items-center gap-2 rounded-full bg-black/5 px-3 py-2 dark:bg-white/5">
-                          <Clock3 className="h-4 w-4" />
-                          {formatMeetingRange(meeting.startedAt, meeting.endedAt)}
-                        </span>
-                        <Badge className="bg-black/5 text-user dark:bg-white/5 dark:text-zinc-100">
-                          <FileText className="mr-2 h-4 w-4" />
-                          {meeting.templateId}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="text-right text-xs text-secondary">
-                        <p>{transcriptSummary}</p>
-                        <p>{isSavingTitle ? "Saving title…" : "Title saved locally"}</p>
-                      </div>
-                      <Button
-                        variant="secondary"
-                        className="h-10 rounded-full px-4"
-                        onClick={() => {
-                          setIsTranscriptOpen((value) => !value);
-                        }}
-                      >
-                        {isTranscriptOpen ? <PanelRightClose className="mr-2 h-4 w-4" /> : <PanelRightOpen className="mr-2 h-4 w-4" />}
-                        {isTranscriptOpen ? "Hide transcript" : "Show transcript"}
-                      </Button>
+          <div
+            className={cn(
+              "relative grid items-start gap-6 transition-all duration-300",
+              isTranscriptOpen ? "xl:grid-cols-[minmax(0,1fr)_360px]" : "xl:grid-cols-[minmax(0,1fr)]",
+            )}
+          >
+            <div className="space-y-6">
+              <section className="panel-surface p-8">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm uppercase tracking-[0.2em] text-secondary">Meeting</p>
+                    <h1
+                      ref={titleRef}
+                      contentEditable
+                      suppressContentEditableWarning
+                      role="textbox"
+                      aria-label="Meeting title"
+                      onBlur={() => {
+                        void saveTitle(titleRef.current?.textContent ?? draftTitle);
+                      }}
+                      onInput={(event) => {
+                        setDraftTitle(event.currentTarget.textContent ?? "");
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          event.currentTarget.blur();
+                        }
+                      }}
+                      className="mt-3 w-full bg-transparent font-display text-4xl text-user outline-none"
+                    >
+                      {draftTitle}
+                    </h1>
+                    <div className="mt-6 flex flex-wrap gap-3 text-sm text-secondary">
+                      <span className="inline-flex items-center gap-2 rounded-full bg-black/5 px-3 py-2 dark:bg-white/5">
+                        <Clock3 className="h-4 w-4" />
+                        {formatMeetingRange(meeting.startedAt, meeting.endedAt)}
+                      </span>
+                      <Badge className="bg-black/5 text-user dark:bg-white/5 dark:text-zinc-100">
+                        <FileText className="mr-2 h-4 w-4" />
+                        {meeting.templateId}
+                      </Badge>
                     </div>
                   </div>
-                </section>
 
-                <NoteEditor
-                  blocks={noteBlocks}
-                  isSaving={isSavingNotes}
-                  onBlocksChange={setNoteBlocks}
-                  onSave={saveNotes}
-                />
-              </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right text-xs text-secondary">
+                      <p>{transcriptSummary}</p>
+                      <p>{isSavingTitle ? "Saving title…" : "Title saved locally"}</p>
+                    </div>
+                    <Button
+                      variant="secondary"
+                      className="h-10 rounded-full px-4"
+                      onClick={() => {
+                        setIsTranscriptOpen((value) => !value);
+                      }}
+                    >
+                      <PanelRightOpen className="mr-2 h-4 w-4" />
+                      Transcript
+                    </Button>
+                  </div>
+                </div>
+              </section>
 
-              <TranscriptPanel
-                activeSegmentIndex={activeSegmentIndex}
-                isOpen={isTranscriptOpen}
-                onClose={() => {
-                  setIsTranscriptOpen(false);
-                }}
-                segments={transcriptSegments}
-              />
+              <NoteEditor blocks={noteBlocks} meetingId={meeting.id} />
             </div>
-          </>
+
+            <TranscriptPanel
+              isOpen={isTranscriptOpen}
+              meetingId={meeting.id}
+              onClose={() => {
+                setIsTranscriptOpen(false);
+              }}
+              startedAt={meeting.startedAt}
+            />
+          </div>
         ) : (
           <div className="panel-surface p-8 text-sm text-secondary">This meeting could not be found.</div>
         )}

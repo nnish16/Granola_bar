@@ -4,7 +4,9 @@ import type {
   MeetingListInput,
   MeetingListResult,
   NoteBlock,
+  SaveNotesInput,
   Settings,
+  TranscriptSinceInput,
   TranscriptSegment,
   UpdateMeetingInput,
 } from "../types";
@@ -18,10 +20,11 @@ export const noteflowIpc = {
     delete: (id: string): Promise<void> => window.noteflow.meetings.delete(id),
     search: (query: string): Promise<Meeting[]> => window.noteflow.meetings.search(query),
     transcript: (id: string): Promise<TranscriptSegment[]> => window.noteflow.meetings.transcript(id),
+    transcriptSince: (input: TranscriptSinceInput): Promise<TranscriptSegment[]> => window.noteflow.meetings.transcriptSince(input),
   },
   notes: {
     get: (meetingId: string): Promise<NoteBlock[]> => window.noteflow.notes.get(meetingId),
-    save: (meetingId: string, blocks: NoteBlock[]): Promise<NoteBlock[]> => window.noteflow.notes.save(meetingId, blocks),
+    save: (input: SaveNotesInput): Promise<NoteBlock[]> => window.noteflow.notes.save(input),
   },
   settings: {
     get: (): Promise<Settings> => window.noteflow.settings.get(),

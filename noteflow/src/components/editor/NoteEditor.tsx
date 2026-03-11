@@ -1,13 +1,12 @@
 import { Plus } from "lucide-react";
-import Button from "../ui/Button";
 import type { NoteBlock as NoteBlockModel } from "../../types";
+import { useNotePersistence } from "../../hooks/useNotePersistence";
+import Button from "../ui/Button";
 import NoteBlock from "./NoteBlock";
 
 type NoteEditorProps = {
   blocks: NoteBlockModel[];
-  isSaving?: boolean;
-  onBlocksChange: (blocks: NoteBlockModel[]) => void;
-  onSave: (blocks: NoteBlockModel[]) => Promise<void>;
+  meetingId: string;
 };
 
 function createEmptyBlock(blockOrder: number): NoteBlockModel {
@@ -21,33 +20,24 @@ function createEmptyBlock(blockOrder: number): NoteBlockModel {
   };
 }
 
-function normalizeBlocks(blocks: NoteBlockModel[]): NoteBlockModel[] {
-  return blocks.map((block, index) => ({
-    ...block,
-    id: block.id ?? crypto.randomUUID(),
-    blockOrder: index,
-  }));
+function createFallbackBlocks(): NoteBlockModel[] {
+  return [createEmptyBlock(0)];
 }
 
-export default function NoteEditor({
-  blocks,
-  isSaving = false,
-  onBlocksChange,
-  onSave,
-}: NoteEditorProps): JSX.Element {
-  const resolvedBlocks = blocks.length > 0 ? normalizeBlocks(blocks) : [createEmptyBlock(0)];
-
-  const updateBlocks = (nextBlocks: NoteBlockModel[]): void => {
-    onBlocksChange(normalizeBlocks(nextBlocks));
-  };
+export default function NoteEditor({ blocks, meetingId }: NoteEditorProps): JSX.Element {
+  const { addBlock, draftBlocks, isSaving, saveNow, updateBlock } = useNotePersistence({
+    blocks,
+    meetingId,
+    createFallbackBlocks,
+  });
 
   return (
-    <section className="panel-surface p-6">
+    <section className="panel-surface flex min-h-[520px] flex-col p-6">
       <div className="flex items-center justify-between gap-3 border-b border-border pb-4">
         <div>
           <p className="text-sm font-semibold text-user">Notes</p>
           <p className="text-xs text-secondary">
-            User notes stay dark. AI enhancements appear in gray with a subtle left rule.
+            User blocks stay editable. AI blocks are read-only and rendered in gray italic text.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -55,9 +45,7 @@ export default function NoteEditor({
           <Button
             variant="secondary"
             className="h-9 rounded-full px-4"
-            onClick={() => {
-              updateBlocks([...resolvedBlocks, createEmptyBlock(resolvedBlocks.length)]);
-            }}
+            onClick={addBlock}
           >
             <Plus className="mr-2 h-4 w-4" />
             Add note
@@ -65,35 +53,16 @@ export default function NoteEditor({
         </div>
       </div>
 
-      <div className="mt-4 space-y-3">
-        {resolvedBlocks.map((block, index) => (
+      <div className="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
+        {draftBlocks.map((block, index) => (
           <NoteBlock
             key={block.id ?? `${block.source}-${index}`}
             block={block}
-            isSaving={isSaving}
-            onChange={(nextBlock) => {
-              updateBlocks(resolvedBlocks.map((candidate, candidateIndex) => (candidateIndex === index ? nextBlock : candidate)));
+            onChange={updateBlock}
+            onEnhance={(blockId) => {
+              console.log("enhance", blockId);
             }}
-            onEnhance={async () => {
-              const aiBlock: NoteBlockModel = {
-                id: crypto.randomUUID(),
-                blockOrder: index + 1,
-                blockType: "paragraph",
-                content: `[AI enhanced: ${block.content || "Add context here"}]`,
-                source: "ai",
-                transcriptRef: block.transcriptRef,
-              };
-              const nextBlocks = [
-                ...resolvedBlocks.slice(0, index + 1),
-                aiBlock,
-                ...resolvedBlocks.slice(index + 1),
-              ];
-              updateBlocks(nextBlocks);
-              await onSave(normalizeBlocks(nextBlocks));
-            }}
-            onSave={() => {
-              void onSave(resolvedBlocks);
-            }}
+            onSave={saveNow}
           />
         ))}
       </div>
