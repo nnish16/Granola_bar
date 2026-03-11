@@ -21,6 +21,12 @@ type SelectMeetingRowsOptions = {
   meetingId?: string;
   searchPrefix?: string;
   limit?: number;
+  offset?: number;
+};
+
+type QueryFragment = {
+  sql: string;
+  params: Array<string | number>;
 };
 
 function normalizeSearchPrefix(searchPrefix: string): string {
@@ -29,14 +35,23 @@ function normalizeSearchPrefix(searchPrefix: string): string {
     return trimmedPrefix;
   }
 
-  if (trimmedPrefix.includes("%") || trimmedPrefix.includes("_")) {
-    return trimmedPrefix;
-  }
-
-  return `${trimmedPrefix}%`;
+  const escapedPrefix = trimmedPrefix.replace(/([\\%_])/g, "\\$1");
+  return `${escapedPrefix}%`;
 }
 
-export function selectMeetingRows(db: Database, options: SelectMeetingRowsOptions = {}): MeetingRow[] {
+function normalizeNonNegativeInteger(value: number | undefined, fieldName: "limit" | "offset"): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`${fieldName} must be a non-negative integer.`);
+  }
+
+  return value;
+}
+
+function buildWhereFragment(options: SelectMeetingRowsOptions): QueryFragment {
   const whereClauses: string[] = [];
   const params: Array<string | number> = [];
 
@@ -49,95 +64,130 @@ export function selectMeetingRows(db: Database, options: SelectMeetingRowsOption
     const searchValue = normalizeSearchPrefix(options.searchPrefix);
     whereClauses.push(`
       (
-        m.title LIKE ? COLLATE NOCASE
+        m.title COLLATE NOCASE LIKE ? ESCAPE '\\'
         OR EXISTS (
           SELECT 1
           FROM attendees a
           WHERE a.meeting_id = m.id
-            AND a.name LIKE ? COLLATE NOCASE
+            AND a.name COLLATE NOCASE LIKE ? ESCAPE '\\'
         )
         OR EXISTS (
           SELECT 1
           FROM attendees a
           WHERE a.meeting_id = m.id
-            AND a.email LIKE ? COLLATE NOCASE
+            AND a.email COLLATE NOCASE LIKE ? ESCAPE '\\'
         )
       )
     `);
     params.push(searchValue, searchValue, searchValue);
   }
 
-  const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
-  const limitSql = options.limit ? "LIMIT ?" : "";
-  if (options.limit) {
-    params.push(options.limit);
+  return {
+    sql: whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "",
+    params,
+  };
+}
+
+function buildPaginationFragment(options: SelectMeetingRowsOptions): QueryFragment {
+  const limit = normalizeNonNegativeInteger(options.limit, "limit");
+  const offset = normalizeNonNegativeInteger(options.offset, "offset");
+
+  if (limit === undefined && offset === undefined) {
+    return { sql: "", params: [] };
   }
+
+  const params: Array<string | number> = [];
+  let sql = "";
+
+  if (limit !== undefined) {
+    sql = "LIMIT ?";
+    params.push(limit);
+  } else {
+    sql = "LIMIT -1";
+  }
+
+  if (offset !== undefined) {
+    sql = `${sql} OFFSET ?`;
+    params.push(offset);
+  }
+
+  return { sql, params };
+}
+
+function buildMeetingRowsStatement(whereSql: string, paginationSql: string): string {
+  return `
+    WITH selected_meetings AS (
+      SELECT
+        m.id,
+        m.title,
+        m.started_at AS startedAt,
+        m.ended_at AS endedAt,
+        m.calendar_event_id AS calendarEventId,
+        m.folder_id AS folderId,
+        m.template_id AS templateId,
+        m.share_id AS shareId,
+        m.share_mode AS shareMode,
+        m.created_at AS createdAt,
+        m.updated_at AS updatedAt
+      FROM meetings m
+      ${whereSql}
+      ORDER BY m.started_at DESC
+      ${paginationSql}
+    ),
+    attendee_counts AS (
+      SELECT
+        a.meeting_id AS meetingId,
+        COUNT(*) AS attendeeCount
+      FROM attendees a
+      INNER JOIN selected_meetings sm ON sm.id = a.meeting_id
+      GROUP BY a.meeting_id
+    ),
+    first_notes AS (
+      SELECT
+        ranked_notes.meetingId,
+        ranked_notes.previewText
+      FROM (
+        SELECT
+          nb.meeting_id AS meetingId,
+          nb.content AS previewText,
+          ROW_NUMBER() OVER (
+            PARTITION BY nb.meeting_id
+            ORDER BY nb.block_order ASC
+          ) AS rowNumber
+        FROM note_blocks nb
+        INNER JOIN selected_meetings sm ON sm.id = nb.meeting_id
+      ) ranked_notes
+      WHERE ranked_notes.rowNumber = 1
+    )
+    SELECT
+      sm.id,
+      sm.title,
+      sm.startedAt,
+      sm.endedAt,
+      sm.calendarEventId,
+      sm.folderId,
+      sm.templateId,
+      sm.shareId,
+      sm.shareMode,
+      sm.createdAt,
+      sm.updatedAt,
+      COALESCE(ac.attendeeCount, 0) AS attendeeCount,
+      fn.previewText AS previewText
+    FROM selected_meetings sm
+    LEFT JOIN attendee_counts ac ON ac.meetingId = sm.id
+    LEFT JOIN first_notes fn ON fn.meetingId = sm.id
+    ORDER BY sm.startedAt DESC
+  `;
+}
+
+export function selectMeetingRows(db: Database, options: SelectMeetingRowsOptions = {}): MeetingRow[] {
+  const whereFragment = buildWhereFragment(options);
+  const paginationFragment = buildPaginationFragment(options);
+  const params = [...whereFragment.params, ...paginationFragment.params];
 
   return db
     .prepare(
-      `
-        WITH selected_meetings AS (
-          SELECT
-            m.id,
-            m.title,
-            m.started_at AS startedAt,
-            m.ended_at AS endedAt,
-            m.calendar_event_id AS calendarEventId,
-            m.folder_id AS folderId,
-            m.template_id AS templateId,
-            m.share_id AS shareId,
-            m.share_mode AS shareMode,
-            m.created_at AS createdAt,
-            m.updated_at AS updatedAt
-          FROM meetings m
-          ${whereSql}
-          ORDER BY m.started_at DESC
-          ${limitSql}
-        ),
-        attendee_counts AS (
-          SELECT
-            a.meeting_id AS meetingId,
-            COUNT(*) AS attendeeCount
-          FROM attendees a
-          INNER JOIN selected_meetings sm ON sm.id = a.meeting_id
-          GROUP BY a.meeting_id
-        ),
-        first_notes AS (
-          SELECT
-            ranked_notes.meetingId,
-            ranked_notes.previewText
-          FROM (
-            SELECT
-              nb.meeting_id AS meetingId,
-              nb.content AS previewText,
-              ROW_NUMBER() OVER (
-                PARTITION BY nb.meeting_id
-                ORDER BY nb.block_order ASC
-              ) AS rowNumber
-            FROM note_blocks nb
-            INNER JOIN selected_meetings sm ON sm.id = nb.meeting_id
-          ) ranked_notes
-          WHERE ranked_notes.rowNumber = 1
-        )
-        SELECT
-          sm.id,
-          sm.title,
-          sm.startedAt,
-          sm.endedAt,
-          sm.calendarEventId,
-          sm.folderId,
-          sm.templateId,
-          sm.shareId,
-          sm.shareMode,
-          sm.createdAt,
-          sm.updatedAt,
-          COALESCE(ac.attendeeCount, 0) AS attendeeCount,
-          fn.previewText AS previewText
-        FROM selected_meetings sm
-        LEFT JOIN attendee_counts ac ON ac.meetingId = sm.id
-        LEFT JOIN first_notes fn ON fn.meetingId = sm.id
-        ORDER BY sm.startedAt DESC
-      `,
+      buildMeetingRowsStatement(whereFragment.sql, paginationFragment.sql),
     )
     .all(...params) as MeetingRow[];
 }

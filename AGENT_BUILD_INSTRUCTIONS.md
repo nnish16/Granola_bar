@@ -524,7 +524,7 @@ Complete each phase fully and commit before starting the next.
 
 ---
 
-### PHASE 1 — Project Scaffold & Database
+### ✅ PHASE 1 — Project Scaffold [COMPLETE] & Database
 **Goal**: Running Electron app with SQLite database connected.
 
 1. Initialize project with `npx create-electron-app noteflow --template=webpack-typescript`
@@ -577,8 +577,30 @@ Complete each phase fully and commit before starting the next.
 
 ---
 
-### PHASE 3 — Swift Audio Capture Helper
+### ✅ PHASE 3 — Swift Audio Capture Helper [COMPLETE]
+**Status**: DONE — all files implemented, TypeScript typechecks pass.
 **Goal**: Electron can spawn the Swift helper and receive PCM audio chunks.
+
+**What was implemented** (by Claude, March 2026):
+- `swift/AudioCapture/ScreenAudioCapture.swift` — Full SCStream implementation capturing 48kHz stereo system audio
+- `swift/AudioCapture/AudioChunker.swift` — AVAudioConverter resampling 48kHz stereo → 16kHz mono, 3s chunk accumulation
+- `swift/AudioCapture/main.swift` — Entry point, stdin/SIGTERM shutdown, stdout PCM stream
+- `swift/AudioCapture.entitlements` — com.apple.security.screen-capture entitlement for ad-hoc signing
+- `electron/audio/capture.ts` — AudioCapture class: spawns binary, reads fixed 192000-byte chunks from stdout, emits audioChunk events
+- `electron/ipc/audio.ipc.ts` — IPC handlers: audio:start, audio:stop, audio:status; forwards chunk metadata to renderer
+- `electron/main.ts` — Updated to register audio IPC handlers with mainWindow reference
+- `electron/preload.ts` — Exposes window.noteflow.audio (start, stop, status, onChunk, onError, onStopped, removeAllListeners)
+- `src/types/index.ts` — AudioChunkInfo, AudioStatusResult, AudioStartResult types added
+- `scripts/build-swift.sh` — Compiles Swift binary to resources/AudioCapture with ad-hoc codesigning
+
+**To build the Swift binary** (do this before testing Phase 3):
+```bash
+cd ~/Downloads/Granola_bar/noteflow
+npm run build:swift
+```
+
+**Chunk format**: Raw IEEE 754 float32 LE PCM, 16kHz mono, exactly 192,000 bytes (3 seconds)
+**IPC flow**: renderer calls audio:start(meetingId) → main spawns Swift binary → stdout PCM → AudioCapture emits audioChunk → IPC sends metadata to renderer
 
 1. Create `swift/AudioCapture/main.swift`:
    ```swift

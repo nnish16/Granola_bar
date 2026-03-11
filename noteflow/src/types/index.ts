@@ -1,7 +1,15 @@
+// ---------------------------------------------------------------------------
+// Shared types — used by both renderer (React) and main process (Electron)
+// ---------------------------------------------------------------------------
+
 export type ShareMode = "private" | "public";
 export type ThemeMode = "system" | "light" | "dark";
 export type NoteBlockType = "heading" | "bullet" | "paragraph";
 export type NoteBlockSource = "user" | "ai";
+
+// ---------------------------------------------------------------------------
+// Data Models
+// ---------------------------------------------------------------------------
 
 export interface Attendee {
   id?: string;
@@ -41,6 +49,16 @@ export interface CreateMeetingInput {
 
 export interface UpdateMeetingInput extends CreateMeetingInput {
   id: string;
+}
+
+export interface MeetingListInput {
+  offset?: number;
+  limit?: number;
+}
+
+export interface MeetingListResult {
+  items: Meeting[];
+  hasMore: boolean;
 }
 
 export interface NoteBlock {
@@ -83,18 +101,79 @@ export interface Settings {
   theme: ThemeMode;
 }
 
+// ---------------------------------------------------------------------------
+// Audio API
+// ---------------------------------------------------------------------------
+
+export interface AudioChunkInfo {
+  meetingId: string;
+  timestamp: number;
+  durationMs: number;
+}
+
+export interface AudioStatusResult {
+  isCapturing: boolean;
+  meetingId: string | null;
+}
+
+export interface AudioStartResult {
+  ok: boolean;
+  error?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Notion API
+// ---------------------------------------------------------------------------
+
+export interface NotionSyncResult {
+  ok: true;
+  pageId: string;
+  pageUrl: string;
+}
+
+export interface NotionSyncError {
+  ok: false;
+  error: string;
+}
+
+export type NotionSyncOutcome = NotionSyncResult | NotionSyncError;
+
+export interface NotionStatusResult {
+  configured: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// NoteFlow Electron API (window.noteflow)
+// ---------------------------------------------------------------------------
+
 export interface NoteFlowApi {
   meetings: {
-    list: () => Promise<Meeting[]>;
+    list: (input?: MeetingListInput) => Promise<MeetingListResult>;
     get: (id: string) => Promise<Meeting | null>;
     create: (input: CreateMeetingInput) => Promise<Meeting>;
     update: (input: UpdateMeetingInput) => Promise<Meeting>;
     delete: (id: string) => Promise<void>;
     search: (query: string) => Promise<Meeting[]>;
+    transcript: (id: string) => Promise<TranscriptSegment[]>;
   };
   settings: {
     get: () => Promise<Settings>;
     set: (input: Partial<Settings>) => Promise<Settings>;
+  };
+  audio: {
+    start: (meetingId: string) => Promise<AudioStartResult>;
+    stop: () => Promise<{ ok: boolean }>;
+    status: () => Promise<AudioStatusResult>;
+    onChunk: (callback: (info: AudioChunkInfo) => void) => () => void;
+    onError: (callback: (info: { message: string }) => void) => () => void;
+    onStopped: (callback: () => void) => () => void;
+    removeAllListeners: () => void;
+  };
+  notion: {
+    /** Sync a completed meeting to Notion. Returns page URL on success. */
+    sync: (meetingId: string) => Promise<NotionSyncOutcome>;
+    /** Check if Notion API key + database ID are configured in settings. */
+    status: () => Promise<NotionStatusResult>;
   };
 }
 

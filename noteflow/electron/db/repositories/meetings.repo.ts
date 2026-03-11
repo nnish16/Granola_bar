@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { getDatabase } from "../database";
 import { hydrateMeetingRows, selectMeetingRows } from "./meeting-hydration";
-import type { Attendee, CreateMeetingInput, Meeting, UpdateMeetingInput } from "../../../src/types";
+import type { Attendee, CreateMeetingInput, Meeting, MeetingListInput, MeetingListResult, UpdateMeetingInput } from "../../../src/types";
+
+const DEFAULT_MEETING_PAGE_SIZE = 50;
 
 function normalizeMeetingAttendees(attendees: Attendee[], meetingId: string): Attendee[] {
   return attendees.map((attendee) => {
@@ -28,9 +30,17 @@ function getExistingMeetingOrThrow(id: string): Meeting {
   return meeting;
 }
 
-export function listMeetings(): Meeting[] {
+export function listMeetings(options: MeetingListInput = {}): MeetingListResult {
   const db = getDatabase();
-  return hydrateMeetingRows(db, selectMeetingRows(db, { limit: 100 }));
+  const limit = options.limit ?? DEFAULT_MEETING_PAGE_SIZE;
+  const offset = options.offset ?? 0;
+  const rows = selectMeetingRows(db, { limit: limit + 1, offset });
+  const items = hydrateMeetingRows(db, rows.slice(0, limit));
+
+  return {
+    items,
+    hasMore: rows.length > limit,
+  };
 }
 
 export function getMeeting(id: string): Meeting | null {
@@ -212,7 +222,7 @@ export function searchMeetings(query: string): Meeting[] {
   const db = getDatabase();
   const normalizedQuery = query.trim();
   if (normalizedQuery.length < 2) {
-    return listMeetings();
+    return [];
   }
 
   return hydrateMeetingRows(db, selectMeetingRows(db, { searchPrefix: normalizedQuery, limit: 50 }));

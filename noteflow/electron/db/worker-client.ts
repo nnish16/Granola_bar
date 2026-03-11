@@ -12,8 +12,11 @@ type WorkerAction =
   | "meetings:search"
   | "notes:get"
   | "notes:save"
+  | "notes:list"
   | "settings:get"
-  | "settings:set";
+  | "settings:set"
+  | "settings:getAll"
+  | "meetings:transcript";
 
 type WorkerRequest = {
   id: number;

@@ -1,6 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { formatMeetingRange } from "../../lib/format";
+import { formatMeetingRange, formatRelativeCountdown } from "../../lib/format";
 import type { Meeting } from "../../types";
 
 interface ComingUpProps {
@@ -35,7 +35,12 @@ export default function ComingUp({ meetings }: ComingUpProps): JSX.Element {
             to={`/meeting/${meeting.id}`}
             className="rounded-3xl border border-border bg-white/80 p-4 transition hover:bg-[var(--color-card-hover)] dark:bg-zinc-900"
           >
-            <p className="text-sm font-semibold text-user">{meeting.title}</p>
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-sm font-semibold text-user">{meeting.title}</p>
+              <span className="rounded-full bg-accent/10 px-2.5 py-1 text-[11px] font-medium text-accent">
+                {formatRelativeCountdown(meeting.startedAt)}
+              </span>
+            </div>
             <p className="mt-2 text-sm text-secondary">{formatMeetingRange(meeting.startedAt, meeting.endedAt)}</p>
           </Link>
         ))}

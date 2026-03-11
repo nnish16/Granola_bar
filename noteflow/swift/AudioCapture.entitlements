@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      ScreenCaptureKit: allows the binary to capture system audio via SCStream.
+      macOS prompts the user for Screen Recording permission on first use.
+    -->
+    <key>com.apple.security.screen-capture</key>
+    <true/>
+
+    <!--
+      Hardened runtime: required for notarization, safe for development.
+      Keep this true so ad-hoc signing works with entitlements above.
+    -->
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+
+    <!--
+      Allow the binary to read/write to stdout/stderr pipes.
+      (No network or disk access is needed by AudioCapture.)
+    -->
+    <key>com.apple.security.network.client</key>
+    <false/>
+</dict>
+</plist>

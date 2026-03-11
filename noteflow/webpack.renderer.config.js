@@ -1,6 +1,23 @@
 /** @type {import('webpack').Configuration} */
 module.exports = {
   devtool: "inline-source-map",
+  optimization: {
+    splitChunks: {
+      chunks: "all",
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: "vendors",
+          priority: 10,
+        },
+        tiptap: {
+          test: /[\\/]node_modules[\\/]@tiptap[\\/]/,
+          name: "tiptap",
+          priority: 20,
+        },
+      },
+    },
+  },
   module: {
     rules: [
       {

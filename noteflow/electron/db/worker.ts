@@ -4,15 +4,17 @@ import { createMeeting, deleteMeeting, getMeeting, listMeetings, searchMeetings,
 import { getNotes, replaceNotes } from "./repositories/notes.repo";
 import { getSettings, setSettings } from "./repositories/settings.repo";
 import { seedBuiltInTemplates } from "./repositories/templates.repo";
+import { listTranscriptSegments } from "./repositories/transcripts.repo";
 
 type WorkerRequest =
   | { id: number; action: "initialize" }
-  | { id: number; action: "meetings:list" }
+  | { id: number; action: "meetings:list"; payload?: Parameters<typeof listMeetings>[0] }
   | { id: number; action: "meetings:get"; payload: string }
   | { id: number; action: "meetings:create"; payload: Parameters<typeof createMeeting>[0] }
   | { id: number; action: "meetings:update"; payload: Parameters<typeof updateMeeting>[0] }
   | { id: number; action: "meetings:delete"; payload: string }
   | { id: number; action: "meetings:search"; payload: string }
+  | { id: number; action: "meetings:transcript"; payload: string }
   | { id: number; action: "notes:get"; payload: string }
   | { id: number; action: "notes:save"; payload: { meetingId: string; blocks: Parameters<typeof replaceNotes>[1] } }
   | { id: number; action: "settings:get" }
@@ -26,9 +28,10 @@ let initializationPromise: Promise<void> | null = null;
 
 async function initializeWorker(): Promise<void> {
   if (!initializationPromise) {
-    initializationPromise = initializeDatabase().then(() => {
+    initializationPromise = (async () => {
+      await initializeDatabase();
       seedBuiltInTemplates();
-    });
+    })();
   }
 
   await initializationPromise;
@@ -42,7 +45,7 @@ async function handleMessage(message: WorkerRequest): Promise<WorkerResponse> {
         await initializeWorker();
         return { id: responseId, success: true, result: null };
       case "meetings:list":
-        return { id: responseId, success: true, result: listMeetings() };
+        return { id: responseId, success: true, result: listMeetings(message.payload) };
       case "meetings:get":
         return { id: responseId, success: true, result: getMeeting(message.payload) };
       case "meetings:create":
@@ -54,6 +57,8 @@ async function handleMessage(message: WorkerRequest): Promise<WorkerResponse> {
         return { id: responseId, success: true, result: null };
       case "meetings:search":
         return { id: responseId, success: true, result: searchMeetings(message.payload) };
+      case "meetings:transcript":
+        return { id: responseId, success: true, result: listTranscriptSegments(message.payload) };
       case "notes:get":
         return { id: responseId, success: true, result: getNotes(message.payload) };
       case "notes:save":

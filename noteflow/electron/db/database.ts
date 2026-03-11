@@ -78,6 +78,26 @@ async function runMigrations(db: BetterSqlite3.Database): Promise<void> {
   }
 }
 
+function performDatabaseMaintenance(db: BetterSqlite3.Database): void {
+  db.pragma("wal_autocheckpoint = 1000");
+
+  const lastVacuum = db
+    .prepare("SELECT value FROM settings WHERE key = 'last_vacuum'")
+    .get() as { value: string } | undefined;
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+  if (!lastVacuum || Number(lastVacuum.value) < weekAgo) {
+    db.exec("VACUUM");
+    db.prepare(
+      `
+        INSERT INTO settings (key, value)
+        VALUES ('last_vacuum', ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `,
+    ).run(String(Date.now()));
+  }
+}
+
 export async function initializeDatabase(): Promise<BetterSqlite3.Database> {
   if (database) {
     return database;
@@ -92,6 +112,7 @@ export async function initializeDatabase(): Promise<BetterSqlite3.Database> {
   database.pragma("foreign_keys = ON");
 
   await runMigrations(database);
+  performDatabaseMaintenance(database);
   return database;
 }
 

@@ -4,6 +4,8 @@ import { initializeDatabaseWorker } from "./db/worker-client";
 import { registerMeetingsIpcHandlers } from "./ipc/meetings.ipc";
 import { registerNotesIpcHandlers } from "./ipc/notes.ipc";
 import { registerSettingsIpcHandlers } from "./ipc/settings.ipc";
+import { registerAudioIpcHandlers } from "./ipc/audio.ipc";
+import { registerNotionIpcHandlers } from "./ipc/notion.ipc";
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -32,10 +34,12 @@ function createMainWindow(): BrowserWindow {
   return window;
 }
 
-function registerIpcHandlers(): void {
+function registerIpcHandlers(window: BrowserWindow): void {
   registerMeetingsIpcHandlers();
   registerNotesIpcHandlers();
   registerSettingsIpcHandlers();
+  registerAudioIpcHandlers(window);
+  registerNotionIpcHandlers();
 }
 
 void app.whenReady().then(async () => {
@@ -45,13 +49,14 @@ void app.whenReady().then(async () => {
   process.env.NOTEFLOW_IS_PACKAGED = app.isPackaged ? "true" : "false";
 
   await initializeDatabaseWorker();
-  registerIpcHandlers();
 
   mainWindow = createMainWindow();
+  registerIpcHandlers(mainWindow);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       mainWindow = createMainWindow();
+      registerIpcHandlers(mainWindow);
     }
   });
 });

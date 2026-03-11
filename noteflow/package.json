@@ -9,7 +9,9 @@
     "package": "electron-forge package",
     "make": "electron-forge make",
     "build": "electron-builder",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.main.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.main.json",
+    "build:swift": "./scripts/build-swift.sh",
+    "build:swift:debug": "./scripts/build-swift.sh --debug"
   },
   "license": "MIT",
   "devDependencies": {
@@ -61,7 +63,8 @@
     "tailwind-merge": "^3.3.1",
     "uuid": "^13.0.0",
     "vectordb": "^0.21.2",
-    "zustand": "^5.0.8"
+    "zustand": "^5.0.8",
+    "@notionhq/client": "^2.2.15"
   },
   "config": {
     "forge": {
