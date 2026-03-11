@@ -11,6 +11,10 @@ const api: NoteFlowApi = {
     search: (query) => ipcRenderer.invoke("meetings:search", query),
     transcript: (id) => ipcRenderer.invoke("meetings:transcript", id),
   },
+  notes: {
+    get: (meetingId) => ipcRenderer.invoke("notes:get", meetingId),
+    save: (meetingId, blocks) => ipcRenderer.invoke("notes:save", { meetingId, blocks }),
+  },
   settings: {
     get: () => ipcRenderer.invoke("settings:get"),
     set: (partialSettings) => ipcRenderer.invoke("settings:set", partialSettings),

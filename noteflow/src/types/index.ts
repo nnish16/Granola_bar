@@ -156,6 +156,10 @@ export interface NoteFlowApi {
     search: (query: string) => Promise<Meeting[]>;
     transcript: (id: string) => Promise<TranscriptSegment[]>;
   };
+  notes: {
+    get: (meetingId: string) => Promise<NoteBlock[]>;
+    save: (meetingId: string, blocks: NoteBlock[]) => Promise<NoteBlock[]>;
+  };
   settings: {
     get: () => Promise<Settings>;
     set: (input: Partial<Settings>) => Promise<Settings>;

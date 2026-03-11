@@ -3,6 +3,7 @@ import type {
   Meeting,
   MeetingListInput,
   MeetingListResult,
+  NoteBlock,
   Settings,
   TranscriptSegment,
   UpdateMeetingInput,
@@ -17,6 +18,10 @@ export const noteflowIpc = {
     delete: (id: string): Promise<void> => window.noteflow.meetings.delete(id),
     search: (query: string): Promise<Meeting[]> => window.noteflow.meetings.search(query),
     transcript: (id: string): Promise<TranscriptSegment[]> => window.noteflow.meetings.transcript(id),
+  },
+  notes: {
+    get: (meetingId: string): Promise<NoteBlock[]> => window.noteflow.notes.get(meetingId),
+    save: (meetingId: string, blocks: NoteBlock[]): Promise<NoteBlock[]> => window.noteflow.notes.save(meetingId, blocks),
   },
   settings: {
     get: (): Promise<Settings> => window.noteflow.settings.get(),

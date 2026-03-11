@@ -25,6 +25,17 @@ export function getSettings(): Settings {
   };
 }
 
+export function getAllSettings(): Record<string, string> {
+  const rows = getDatabase()
+    .prepare("SELECT key, value FROM settings")
+    .all() as Array<{ key: string; value: string }>;
+
+  return rows.reduce<Record<string, string>>((accumulator, row) => {
+    accumulator[row.key] = row.value;
+    return accumulator;
+  }, {});
+}
+
 export function getSetting<Key extends keyof Settings>(key: Key): Settings[Key] {
   return getSettings()[key];
 }

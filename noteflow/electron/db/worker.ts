@@ -2,7 +2,7 @@ import { parentPort } from "node:worker_threads";
 import { initializeDatabase } from "./database";
 import { createMeeting, deleteMeeting, getMeeting, listMeetings, searchMeetings, updateMeeting } from "./repositories/meetings.repo";
 import { getNotes, replaceNotes } from "./repositories/notes.repo";
-import { getSettings, setSettings } from "./repositories/settings.repo";
+import { getAllSettings, getSettings, setSettings } from "./repositories/settings.repo";
 import { seedBuiltInTemplates } from "./repositories/templates.repo";
 import { listTranscriptSegments } from "./repositories/transcripts.repo";
 
@@ -16,15 +16,21 @@ type WorkerRequest =
   | { id: number; action: "meetings:search"; payload: string }
   | { id: number; action: "meetings:transcript"; payload: string }
   | { id: number; action: "notes:get"; payload: string }
+  | { id: number; action: "notes:list"; payload: string | { meetingId: string } }
   | { id: number; action: "notes:save"; payload: { meetingId: string; blocks: Parameters<typeof replaceNotes>[1] } }
   | { id: number; action: "settings:get" }
-  | { id: number; action: "settings:set"; payload: Parameters<typeof setSettings>[0] };
+  | { id: number; action: "settings:set"; payload: Parameters<typeof setSettings>[0] }
+  | { id: number; action: "settings:getAll" };
 
 type WorkerResponse =
   | { id: number; success: true; result: unknown }
   | { id: number; success: false; error: string };
 
 let initializationPromise: Promise<void> | null = null;
+
+type WorkerAction = WorkerRequest["action"];
+type WorkerMessage = WorkerRequest & { payload?: unknown };
+type WorkerHandler = (message: WorkerMessage) => Promise<unknown> | unknown;
 
 async function initializeWorker(): Promise<void> {
   if (!initializationPromise) {
@@ -37,37 +43,42 @@ async function initializeWorker(): Promise<void> {
   await initializationPromise;
 }
 
+const workerHandlers: Record<WorkerAction, WorkerHandler> = {
+  initialize: async () => {
+    await initializeWorker();
+    return null;
+  },
+  "meetings:list": (message) => listMeetings(message.payload as Parameters<typeof listMeetings>[0] | undefined),
+  "meetings:get": (message) => getMeeting(message.payload as string),
+  "meetings:create": (message) => createMeeting(message.payload as Parameters<typeof createMeeting>[0]),
+  "meetings:update": (message) => updateMeeting(message.payload as Parameters<typeof updateMeeting>[0]),
+  "meetings:delete": (message) => {
+    deleteMeeting(message.payload as string);
+    return null;
+  },
+  "meetings:search": (message) => searchMeetings(message.payload as string),
+  "meetings:transcript": (message) => listTranscriptSegments(message.payload as string),
+  "notes:get": (message) => getNotes(message.payload as string),
+  "notes:list": (message) => {
+    const payload = message.payload as string | { meetingId: string };
+    const meetingId = typeof payload === "string" ? payload : payload.meetingId;
+    return getNotes(meetingId);
+  },
+  "notes:save": (message) => {
+    const payload = message.payload as { meetingId: string; blocks: Parameters<typeof replaceNotes>[1] };
+    return replaceNotes(payload.meetingId, payload.blocks);
+  },
+  "settings:get": () => getSettings(),
+  "settings:getAll": () => getAllSettings(),
+  "settings:set": (message) => setSettings(message.payload as Parameters<typeof setSettings>[0]),
+};
+
 async function handleMessage(message: WorkerRequest): Promise<WorkerResponse> {
   const responseId = message.id;
   try {
-    switch (message.action) {
-      case "initialize":
-        await initializeWorker();
-        return { id: responseId, success: true, result: null };
-      case "meetings:list":
-        return { id: responseId, success: true, result: listMeetings(message.payload) };
-      case "meetings:get":
-        return { id: responseId, success: true, result: getMeeting(message.payload) };
-      case "meetings:create":
-        return { id: responseId, success: true, result: createMeeting(message.payload) };
-      case "meetings:update":
-        return { id: responseId, success: true, result: updateMeeting(message.payload) };
-      case "meetings:delete":
-        deleteMeeting(message.payload);
-        return { id: responseId, success: true, result: null };
-      case "meetings:search":
-        return { id: responseId, success: true, result: searchMeetings(message.payload) };
-      case "meetings:transcript":
-        return { id: responseId, success: true, result: listTranscriptSegments(message.payload) };
-      case "notes:get":
-        return { id: responseId, success: true, result: getNotes(message.payload) };
-      case "notes:save":
-        return { id: responseId, success: true, result: replaceNotes(message.payload.meetingId, message.payload.blocks) };
-      case "settings:get":
-        return { id: responseId, success: true, result: getSettings() };
-      case "settings:set":
-        return { id: responseId, success: true, result: setSettings(message.payload) };
-    }
+    const handler = workerHandlers[message.action];
+    const result = await handler(message as WorkerMessage);
+    return { id: responseId, success: true, result };
   } catch (error) {
     return {
       id: responseId,
@@ -76,7 +87,6 @@ async function handleMessage(message: WorkerRequest): Promise<WorkerResponse> {
     };
   }
 
-  return { id: responseId, success: false, error: "Unsupported worker action." };
 }
 
 if (!parentPort) {
