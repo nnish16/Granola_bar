@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import NoteEditor from "../components/editor/NoteEditor";
 import AppShell from "../components/layout/AppShell";
 import TopBar from "../components/layout/TopBar";
+import MeetingExportPanel from "../components/share/MeetingExportPanel";
 import TranscriptPanel from "../components/transcript/TranscriptPanel";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
@@ -189,6 +190,7 @@ export default function MeetingView(): JSX.Element {
               </section>
 
               <NoteEditor blocks={noteBlocks} meetingId={meeting.id} />
+              <MeetingExportPanel meeting={meeting} />
             </div>
 
             <TranscriptPanel

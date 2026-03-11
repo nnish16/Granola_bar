@@ -53,7 +53,7 @@ export default function NoteEditor({ blocks, meetingId }: NoteEditorProps): JSX.
     try {
       const settings = await noteflowIpc.settings.get();
       if (!settings.googleAiKey.trim()) {
-        throw new Error("Add your Google AI Studio API key in Settings before using AI enhancement.");
+        throw new Error("Add your Gemini / Google AI Studio API key in Settings before using AI enhancement.");
       }
 
       const enhancedText = await enhanceMeetingNote({

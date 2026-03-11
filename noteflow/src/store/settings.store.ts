@@ -3,6 +3,7 @@ import { noteflowIpc } from "../lib/ipc";
 import type { Settings } from "../types";
 
 const defaultSettings: Settings = {
+  googleDriveFolderId: "",
   googleAiKey: "",
   notionApiKey: "",
   notionParentPageId: "",

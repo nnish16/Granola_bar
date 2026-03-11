@@ -3,9 +3,15 @@ import type {
   AudioStartResult,
   AudioStatusResult,
   CreateMeetingInput,
+  DriveExportInput,
+  DriveExportOutcome,
+  DriveStatusResult,
   Meeting,
   MeetingListInput,
   MeetingListResult,
+  NotionStatusResult,
+  NotionSyncInput,
+  NotionSyncOutcome,
   NoteBlock,
   NoteFlowApi,
   SaveNotesInput,
@@ -67,5 +73,14 @@ export const noteflowIpc = {
       getOptionalNoteflowApi()?.audio.onError(callback) ?? noopUnsubscribe,
     onStopped: (callback: () => void): (() => void) =>
       getOptionalNoteflowApi()?.audio.onStopped(callback) ?? noopUnsubscribe,
+  },
+  notion: {
+    sync: (input: NotionSyncInput): Promise<NotionSyncOutcome> => withNoteflowApi((api) => api.notion.sync(input)),
+    status: (): Promise<NotionStatusResult> => withNoteflowApi((api) => api.notion.status()),
+  },
+  drive: {
+    status: (): Promise<DriveStatusResult> => withNoteflowApi((api) => api.drive.status()),
+    exportMeeting: (input: DriveExportInput): Promise<DriveExportOutcome> =>
+      withNoteflowApi((api) => api.drive.exportMeeting(input)),
   },
 };

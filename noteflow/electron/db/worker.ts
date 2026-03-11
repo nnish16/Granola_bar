@@ -2,7 +2,7 @@ import { parentPort } from "node:worker_threads";
 import { initializeDatabase } from "./database";
 import { createMeeting, deleteMeeting, getMeeting, listMeetings, searchMeetings, updateMeeting } from "./repositories/meetings.repo";
 import { getNotes, replaceNotes } from "./repositories/notes.repo";
-import { getAllSettings, getSettings, setSettings } from "./repositories/settings.repo";
+import { getAllSettings, setRawSettings } from "./repositories/settings.repo";
 import { seedBuiltInTemplates } from "./repositories/templates.repo";
 import {
   listTranscriptSegments,
@@ -40,8 +40,7 @@ type WorkerRequest =
   | { id: number; action: "notes:get"; payload: string }
   | { id: number; action: "notes:list"; payload: string | { meetingId: string } }
   | { id: number; action: "notes:save"; payload: { meetingId: string; blocks: Parameters<typeof replaceNotes>[1] } }
-  | { id: number; action: "settings:get" }
-  | { id: number; action: "settings:set"; payload: Parameters<typeof setSettings>[0] }
+  | { id: number; action: "settings:setRaw"; payload: Record<string, string> }
   | { id: number; action: "settings:getAll" };
 
 type WorkerResponse =
@@ -108,9 +107,8 @@ const workerHandlers: Record<WorkerAction, WorkerHandler> = {
     const payload = message.payload as { meetingId: string; blocks: Parameters<typeof replaceNotes>[1] };
     return replaceNotes(payload.meetingId, payload.blocks);
   },
-  "settings:get": () => getSettings(),
   "settings:getAll": () => getAllSettings(),
-  "settings:set": (message) => setSettings(message.payload as Parameters<typeof setSettings>[0]),
+  "settings:setRaw": (message) => setRawSettings(message.payload as Record<string, string>),
 };
 
 async function handleMessage(message: WorkerRequest): Promise<WorkerResponse> {

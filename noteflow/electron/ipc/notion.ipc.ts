@@ -1,6 +1,8 @@
 import { ipcMain } from "electron";
 import { syncMeetingToNotion } from "../notion/sync";
-import { callDatabaseWorker } from "../db/worker-client";
+import { filterMeetingForExport, loadMeetingForExport, resolveMeetingSyncSelection } from "../share/meeting-export";
+import type { NotionSyncInput } from "../../src/types";
+import { getSecureSettings } from "../settings/secure-settings";
 
 /**
  * IPC channels for Notion integration:
@@ -16,14 +18,14 @@ export function registerNotionIpcHandlers(): void {
   // ── notion:sync ──────────────────────────────────────────────────────────
   ipcMain.handle(
     "notion:sync",
-    async (_event, meetingId: string) => {
+    async (_event, input: string | NotionSyncInput) => {
+      const meetingId = typeof input === "string" ? input : input.meetingId;
+      const selection = resolveMeetingSyncSelection(typeof input === "string" ? undefined : input.selection);
+
       // 1. Fetch settings (api key + database id)
-      const settings = (await callDatabaseWorker("settings:getAll")) as Record<
-        string,
-        string
-      >;
-      const apiKey = settings["notion_api_key"] ?? "";
-      const databaseId = settings["notion_database_id"] ?? "";
+      const settings = await getSecureSettings();
+      const apiKey = settings.notionApiKey.trim();
+      const databaseId = settings.notionParentPageId.trim();
 
       if (!apiKey || !databaseId) {
         return {
@@ -33,45 +35,21 @@ export function registerNotionIpcHandlers(): void {
         };
       }
 
-      // 2. Fetch meeting + attendees
-      const meeting = (await callDatabaseWorker("meetings:get", meetingId)) as
-        | null
-        | {
-            id: string;
-            title: string;
-            startedAt: number;
-            endedAt: number | null;
-            templateId: string;
-            attendees: Array<{ name: string; email: string | null }>;
-          };
+      // 2. Fetch meeting + notes + transcript
+      const meeting = await loadMeetingForExport(meetingId);
 
       if (!meeting) {
         return { ok: false, error: `Meeting ${meetingId} not found` };
       }
 
-      // 3. Fetch note blocks
-      const noteBlocks = (await callDatabaseWorker(
-        "notes:list",
-        meetingId
-      )) as Array<{
-        content: string;
-        source: "user" | "ai";
-        blockType: string;
-      }>;
+      // 3. Sync only the selected slices of meeting content.
+      const filteredMeeting = filterMeetingForExport(meeting, selection);
 
-      // 4. Fetch transcript segments
-      const transcriptSegments = (await callDatabaseWorker(
-        "meetings:transcript",
-        meetingId
-      )) as Array<{
-        speakerLabel: string;
-        text: string;
-        startMs: number;
-      }>;
-
-      // 5. Sync to Notion
       return syncMeetingToNotion(
-        { ...meeting, noteBlocks, transcriptSegments },
+        {
+          ...filteredMeeting,
+          transcriptSegments: filteredMeeting.transcriptSegments.slice(0, 100),
+        },
         { apiKey, databaseId }
       );
     }
@@ -79,14 +57,9 @@ export function registerNotionIpcHandlers(): void {
 
   // ── notion:status ────────────────────────────────────────────────────────
   ipcMain.handle("notion:status", async () => {
-    const settings = (await callDatabaseWorker("settings:getAll")) as Record<
-      string,
-      string
-    >;
+    const settings = await getSecureSettings();
     return {
-      configured:
-        Boolean(settings["notion_api_key"]) &&
-        Boolean(settings["notion_database_id"]),
+      configured: Boolean(settings.notionApiKey) && Boolean(settings.notionParentPageId),
     };
   });
 }

@@ -17,8 +17,7 @@ type WorkerAction =
   | "notes:get"
   | "notes:save"
   | "notes:list"
-  | "settings:get"
-  | "settings:set"
+  | "settings:setRaw"
   | "settings:getAll";
 
 type WorkerRequest = {

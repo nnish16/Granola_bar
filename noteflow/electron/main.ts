@@ -6,6 +6,7 @@ import { registerNotesIpcHandlers } from "./ipc/notes.ipc";
 import { registerSettingsIpcHandlers } from "./ipc/settings.ipc";
 import { registerAudioIpcHandlers } from "./ipc/audio.ipc";
 import { registerNotionIpcHandlers } from "./ipc/notion.ipc";
+import { registerShareIpcHandlers } from "./ipc/share.ipc";
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -40,6 +41,7 @@ function registerIpcHandlers(window: BrowserWindow): void {
   registerSettingsIpcHandlers();
   registerAudioIpcHandlers(window);
   registerNotionIpcHandlers();
+  registerShareIpcHandlers();
 }
 
 void app.whenReady().then(async () => {

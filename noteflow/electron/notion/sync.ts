@@ -49,7 +49,7 @@ export interface NotionSyncConfig {
 
 export async function syncMeetingToNotion(
   meeting: MeetingForSync,
-  config: NotionSyncConfig
+  config: NotionSyncConfig,
 ): Promise<NotionSyncOutcome> {
   if (!config.apiKey || !config.databaseId) {
     return { ok: false, error: "Notion API key or database ID not configured" };

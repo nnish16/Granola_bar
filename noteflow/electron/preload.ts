@@ -52,8 +52,12 @@ const api: NoteFlowApi = {
     },
   },
   notion: {
-    sync: (meetingId) => ipcRenderer.invoke("notion:sync", meetingId),
+    sync: (input) => ipcRenderer.invoke("notion:sync", input),
     status: () => ipcRenderer.invoke("notion:status"),
+  },
+  drive: {
+    status: () => ipcRenderer.invoke("drive:status"),
+    exportMeeting: (input) => ipcRenderer.invoke("drive:exportMeeting", input),
   },
 };
 

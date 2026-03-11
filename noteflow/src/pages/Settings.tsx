@@ -41,7 +41,7 @@ export default function SettingsPage(): JSX.Element {
           <p className="text-sm uppercase tracking-[0.2em] text-secondary">Settings</p>
           <h1 className="mt-2 font-display text-4xl text-user">Local configuration</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-secondary">
-            These values are stored locally in SQLite on this Mac. Add the credentials here to enable Notion sync and Gemini-based note enhancement.
+            These values are stored locally in SQLite on this Mac. NoteFlow stays local-first: Notion sync and Drive export only send the meeting content you explicitly choose.
           </p>
         </div>
 
@@ -106,7 +106,7 @@ export default function SettingsPage(): JSX.Element {
 
           <div className="grid gap-3 md:grid-cols-[180px,1fr] md:items-center">
             <label htmlFor="google-ai-key" className="text-sm font-medium text-user">
-              Google AI Studio API Key
+              Gemini / Google AI Studio API Key
             </label>
             <input
               id="google-ai-key"
@@ -119,6 +119,28 @@ export default function SettingsPage(): JSX.Element {
               className="h-11 rounded-2xl border border-border bg-white px-4 text-sm text-user outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 dark:bg-zinc-900"
               placeholder="AIza..."
             />
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-[180px,1fr] md:items-center">
+            <label htmlFor="google-drive-folder-id" className="text-sm font-medium text-user">
+              Google Drive Folder ID
+            </label>
+            <div className="space-y-2">
+              <input
+                id="google-drive-folder-id"
+                type="text"
+                value={draft.googleDriveFolderId}
+                onBlur={() => {
+                  void persistField("googleDriveFolderId");
+                }}
+                onChange={(event) => updateDraft("googleDriveFolderId", event.target.value)}
+                className="h-11 w-full rounded-2xl border border-border bg-white px-4 text-sm text-user outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 dark:bg-zinc-900"
+                placeholder="optional Drive folder"
+              />
+              <p className="text-xs text-secondary">
+                Optional. Drive exports upload into this folder when `gws auth login` is configured on this Mac.
+              </p>
+            </div>
           </div>
 
           <div className="border-t border-border pt-6 text-sm text-secondary">

@@ -112,6 +112,7 @@ export interface Settings {
   notionApiKey: string;
   notionParentPageId: string;
   googleAiKey: string;
+  googleDriveFolderId: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -151,8 +152,48 @@ export interface NotionSyncError {
 
 export type NotionSyncOutcome = NotionSyncResult | NotionSyncError;
 
+export interface MeetingSyncSelection {
+  includeUserNotes: boolean;
+  includeAiNotes: boolean;
+  includeTranscript: boolean;
+}
+
+export interface NotionSyncInput {
+  meetingId: string;
+  selection?: Partial<MeetingSyncSelection>;
+}
+
 export interface NotionStatusResult {
   configured: boolean;
+}
+
+export interface DriveExportInput {
+  meetingId: string;
+  selection?: Partial<MeetingSyncSelection>;
+  folderId?: string | null;
+}
+
+export interface DriveExportResult {
+  ok: true;
+  fileId: string;
+  fileName: string;
+  localPath: string;
+  webViewLink: string | null;
+}
+
+export interface DriveExportError {
+  ok: false;
+  error: string;
+  needsAuth?: boolean;
+}
+
+export type DriveExportOutcome = DriveExportResult | DriveExportError;
+
+export interface DriveStatusResult {
+  available: boolean;
+  authenticated: boolean;
+  email: string | null;
+  error?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -189,9 +230,13 @@ export interface NoteFlowApi {
   };
   notion: {
     /** Sync a completed meeting to Notion. Returns page URL on success. */
-    sync: (meetingId: string) => Promise<NotionSyncOutcome>;
+    sync: (input: NotionSyncInput) => Promise<NotionSyncOutcome>;
     /** Check if Notion API key + database ID are configured in settings. */
     status: () => Promise<NotionStatusResult>;
+  };
+  drive: {
+    status: () => Promise<DriveStatusResult>;
+    exportMeeting: (input: DriveExportInput) => Promise<DriveExportOutcome>;
   };
 }
 
